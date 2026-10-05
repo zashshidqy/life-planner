@@ -1,0 +1,48 @@
+{
+  // Cloudflare Workers deploy target. See docs/adr/0001-platform.md.
+  //
+  // Validate this file after edits:  pnpm exec wrangler types  (writes worker-configuration.d.ts)
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  "name": "life-planner",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-04-01",
+
+  // nodejs_compat
+  //   Required by OpenNext. Also gives us `process.env` populated from Worker
+  //   bindings, which is why application code can read `process.env.DATABASE_URL`
+  //   unchanged in dev, build, and production.
+  //
+  // global_fetch_strictly_public
+  //   Required by OpenNext. Without it, relative `fetch()` calls can be
+  //   dispatched to an arbitrary hostname taken from an untrusted URL.
+  //
+  // DO NOT set `nodejs_compat_populate_process_env` explicitly: the
+  // 2025-04-01 compatibility date already enables it, and the two settings
+  // conflict.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+  // Static assets — the app shell, the PWA service worker, fonts, and every
+  // character SVG. Free and unmetered on Workers Free: no requests against the
+  // 100,000/day allowance and no egress. This is the single biggest reason the
+  // "static shell" architecture is affordable here.
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "observability": {
+    "enabled": false
+  },
+
+  // Secrets are NOT listed here. A secret in `vars` is plaintext in git.
+  // Set each one with:  wrangler secret put <NAME>
+  //
+  //   DATABASE_URL           Neon pooled URL  (neon-http from Workers)
+  //   DIRECT_DATABASE_URL    Neon direct URL  (drizzle-kit migrations only)
+  //   BETTER_AUTH_SECRET     auth signing secret
+  //   RESEND_API_KEY         transactional email
+  //
+  // Local development reads the same names from `.dev.vars`.
+  "vars": {}
+}

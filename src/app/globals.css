@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+/*
+ * Tailwind v4 is wired up, but the design system is not built.
+ *
+ * DESIGN §43 requires every visual value to come from centralised tokens, and
+ * DESIGN §5–§9 specify what those tokens are: the warm off-white / near-black
+ * palette, 2px default borders, offset shadows with no blur, and a selective
+ * radius hierarchy. Defining any of that here would be Phase 1 work built in
+ * Phase 0 — and defining a *partial* version is worse, because it invites the
+ * next component to copy the ad-hoc values instead of waiting for the tokens.
+ *
+ * So this file is bare. It establishes that Tailwind v4 compiles and that the
+ * Workers build has its CSS pipeline. Phase 1 replaces it wholesale.
+ */

@@ -1,0 +1,14 @@
+# pnpm build-script allowlist.
+#
+# pnpm 10+ blocks dependency lifecycle scripts unless they are listed here.
+# Only packages we actually need at build/test time are enabled.
+#
+#   esbuild   -> required by vitest/vite to transform TS
+#   workerd   -> required by wrangler (miniflare) for `wrangler dev` / `wrangler preview`
+#   sharp     -> next/image optimization; unused on the Workers target
+#   unrs-resolver -> used by eslint-config-next; prebuilt binaries are fine
+allowBuilds:
+  esbuild: true
+  workerd: true
+  sharp: false
+  unrs-resolver: false

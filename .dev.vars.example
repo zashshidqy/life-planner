@@ -1,0 +1,23 @@
+# Cloudflare Workers local variables.
+#
+# Wrangler (and the OpenNext dev proxy) read THIS file, not `.env`.
+# Cloudflare Workers have no ambient process environment at runtime: every value
+# must arrive as a Worker binding (a `var` or a `secret`). That is why the same
+# values are declared twice — `.env.local` for `next build`/Node tooling,
+# `.dev.vars` for the Workers runtime.
+#
+# `.dev.vars` is gitignored. Copy from the example:
+#     cp .dev.vars.example .dev.vars
+#
+# Production equivalent:
+#     wrangler secret put DATABASE_URL
+#     wrangler secret put DIRECT_DATABASE_URL
+#     wrangler secret put BETTER_AUTH_SECRET
+#     wrangler secret put RESEND_API_KEY
+
+DATABASE_URL="postgresql://USER:PASSWORD@ep-XXXX-REGION.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DIRECT_DATABASE_URL="postgresql://USER:PASSWORD@ep-XXXX-REGION.aws.neon.tech/neondb?sslmode=require"
+BETTER_AUTH_SECRET="replace-me-with-output-of-openssl-rand-base64-32"
+RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+EMAIL_FROM="Life Planner <noreply@example.com>"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"

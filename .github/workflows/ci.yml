@@ -1,0 +1,82 @@
+name: CI
+
+# Every push and every pull request. `main` is the only long-lived branch, but
+# running on all branches means a feature branch is verified before review rather
+# than after merge.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+# A new push supersedes an in-flight run for the same ref. Keeps the queue from
+# backing up behind commits nobody cares about anymore.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Node 22.18+ is required, not preferred: it provides native TypeScript type
+      # stripping (`node scripts/seed.ts`) and `--env-file-if-exists`. The project
+      # deliberately has no tsx and no dotenv dependency. See
+      # docs/adr/0007-engineering-practice.md
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@12.9.1 --activate
+
+      # --frozen-lockfile: a CI run that silently resolves different versions
+      # than a developer's machine is not testing the committed state.
+      - name: Install
+        run: pnpm i --frozen-lockfile
+
+      # Deliberate order: cheapest and most-likely-to-fail first, so a broken
+      # commit is diagnosed in seconds instead of after a full Workers build.
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      # No Postgres service container. PGlite runs a real PostgreSQL engine
+      # in-process and loads the same drizzle/*.sql migrations production uses, so
+      # the suite needs no database and no credentials.
+      - name: Test
+        run: pnpm run test:coverage
+
+      - name: Build (Cloudflare Workers)
+        run: pnpm run build
+
+      # Free-tier limiters are configuration mistakes, and configuration mistakes
+      # are what CI is good at catching. Both are documented in
+      # docs/adr/0001-platform.md.
+      - name: Assert free-tier invariants
+        run: |
+          set -euo pipefail
+
+          # Neon scale-to-zero must stay enabled: an always-on 0.25 CU database
+          # burns ~180 CU-hr/month against a 100 CU-hr allowance. See ADR 0001
+          # §"Trap 1".
+          if grep -n "suspend" wrangler.jsonc; then
+            echo "::error::wrangler.jsonc appears to disable Neon scale-to-zero."
+            exit 1
+          fi
+
+          # Secrets belong in `wrangler secret put`, never in plaintext `vars`.
+          if grep -nE '^\s*(DATABASE_URL|POSTGRES|DIRECT_DATABASE_URL|BETTER_AUTH_SECRET|RESEND_API_KEY)\s*=' wrangler.jsonc; then
+            echo "::error::A secret looks hardcoded in wrangler.jsonc vars. Use wrangler secret put."
+            exit 1
+          fi
