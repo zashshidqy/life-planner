@@ -2,8 +2,7 @@
 
 **As of:** 2026-10-05
 **Phase:** 0 (foundation) — **complete**, both blockers resolved
-**Roadmap:** `/home/zhundy/.opencode/plan/LIFE_PLANNER_ROADMAP.md` (outside the repo)
-**Repo:** `/home/zhundy/Projects/life-planner`
+**Roadmap:** [`docs/ROADMAP.md`](ROADMAP.md) (in this repo)
 
 > This file used to live at `~/.opencode/plan/LIFE_PLANNER_STATUS.md`. It now lives in
 > the repo, where it belongs — it is part of the project's state, not a side note.
@@ -17,7 +16,7 @@
 Was: `git rev-list --count HEAD` → `fatal: ambiguous argument 'HEAD'`, 0 tracked
 files, 23 untracked paths. Every piece of Phase 0 was one `git clean -fd` from gone.
 
-Now: 1 commit, 50 files, 18,091 insertions. Verified build artifacts are not
+Now: 1 commit, 51 files, 18,467 insertions. Verified build artifacts are not
 tracked (`.open-next/`, `.next/`, `coverage/`, `.wrangler/`, `node_modules/`,
 `*.tsbuildinfo` all gitignored and confirmed unstaged).
 
@@ -146,15 +145,44 @@ No Turbopack errors in the log. This required removing the `webpack` key from
 ### Migration against real PostgreSQL
 
 Migrations were applied with `drizzle-kit migrate` against **PostgreSQL 17.11**
-(podman, port 54329) and the append-only trigger was confirmed live:
+(podman, port 54329) and the append-only trigger was confirmed live.
 
-```sql
-UPDATE xp_transactions SET amount = 999;
--- ERROR: xp_transactions is append-only
+**Re-verified 2026-10-05**, from a clean container, because a claim nobody can
+reproduce is worth nothing. Setup and result, in full:
+
+```bash
+podman run -d --name life-planner-pg -p 54329:5432 -e POSTGRES_PASSWORD=postgres postgres:17-alpine
+podman exec life-planner-pg createdb -U postgres life_planner
+# select version() → PostgreSQL 17.11 on x86_64-pc-linux-musl
+DIRECT_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54329/life_planner" pnpm run db:migrate
+# → migrations applied successfully!
 ```
 
-All 10 tables present. `pnpm db:seed` loads 20 `system_config` keys and is
-idempotent (re-run verified).
+```sql
+-- Both rejected, with the trigger's own message:
+UPDATE xp_transactions SET amount = 999;
+-- ERROR:  xp_transactions is append-only (PRD §39): UPDATE is not permitted. …
+DELETE FROM xp_transactions;
+-- ERROR:  xp_transactions is append-only (PRD §39): DELETE is not permitted. …
+
+-- ON DELETE RESTRICT also holds:
+DELETE FROM users WHERE id = 'u-verify';
+-- ERROR:  update or delete on table "users" violates foreign key constraint
+--          "xp_transactions_user_id_users_id_fk" on table "xp_transactions"
+```
+
+> **One correction to the evidence previously recorded here.** The earlier version
+> quoted `UPDATE xp_transactions SET amount = 999;` as producing that error. On a
+> freshly migrated, **empty** table it does not — it returns `UPDATE 0`, because a
+> row-level `BEFORE UPDATE OR DELETE` trigger never fires when no row matches. The
+> trigger was fine; the reproduction was incomplete. Seed a row first, then mutate
+> it. `README.md` §"Running Postgres locally with podman" carries the same snippet
+> and the same caveat.
+
+All 10 application tables present (plus drizzle's own `__drizzle_migrations`
+bookkeeping table, so 11 rows in `information_schema` for the `public` schema).
+`pnpm db:seed` loads 20 `system_config` keys and is idempotent — re-run leaves the
+count at 20.
 
 ---
 
@@ -165,10 +193,10 @@ idempotent (re-run verified).
 | Fresh clone → `pnpm i && pnpm dev` runs | ✅ | `pnpm dev` → HTTP 200 (see §2) |
 | `pnpm build` succeeds against Workers target | ✅ | EXIT=0, `.open-next/worker.js` written |
 | All 6 gap decisions written with reasoning | ✅ | 7 ADRs, `docs/adr/` |
-| Schema applied to a dev database; config + analytics tables designed | ⚠️→✅ | Applied to local **Postgres 17.11**, trigger verified live. **Still never run against real Neon** — no account, by design (scope guardrail). |
+| Schema applied to a dev database; config + analytics tables designed | ⚠️→✅ | Applied to local **Postgres 17.11** (`postgres:17-alpine`, podman), trigger re-verified live. **Still never run against real Neon** — no account, by design (scope guardrail). |
 | Idempotency test passes, suite green | ✅ | 28/28 |
 | CI runs typecheck + lint + test and passes | ✅ | `pnpm run ci` EXIT=0; workflow defined |
-| Everything committed | ✅ | 1 commit, 50 files |
+| Everything committed | ✅ | 1 commit, 51 files |
 
 **Phase 0 is complete.** The one caveat worth carrying forward is that no step has
 touched real Cloudflare or Neon infrastructure — every check above is local.
@@ -319,8 +347,6 @@ Phase 3/4.
 ## 9. VERIFICATION COMMANDS
 
 ```bash
-cd /home/zhundy/Projects/life-planner
-
 pnpm run lint           # expect exit 0, no output
 pnpm run typecheck      # expect exit 0, no output
 pnpm run test           # expect 2 files, 28 tests passed

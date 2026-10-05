@@ -16,12 +16,22 @@ represents identity rather than a stat bonus.
 
 - [`docs/PRD.md`](docs/PRD.md) — product requirements. Source of truth for **what**.
 - [`docs/DESIGN.md`](docs/DESIGN.md) — visual design. Source of truth for **how it looks**.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the five invariants, how each is
+  defended, and what breaking it costs.
+- [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — domain terms, especially the ones that are
+  easy to conflate (quest / task / routine / habit, ledger / cache, level / lifetime XP).
 - [`docs/STATUS.md`](docs/STATUS.md) — current phase, verified scorecard, known gaps.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — phase order and pass/fail exit criteria.
 - [`docs/adr/`](docs/adr/) — architecture decision records. Source of truth for **why**.
 
-Read `docs/adr/README.md` first if you want to understand the constraints this
-project is working under. Two of them are load-bearing and non-obvious: the
-Workers 10 ms CPU limit and Neon scale-to-zero both shape the architecture.
+Start with [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) before changing anything —
+it is short, and it is the list of mistakes that are expensive to make. Read
+`docs/adr/README.md` next if you want the full reasoning; two constraints are
+load-bearing and non-obvious — the Workers 10 ms CPU limit and Neon scale-to-zero
+both shape the architecture.
+
+Working with an AI agent? [`AGENTS.md`](AGENTS.md) is the entry point and is
+loaded automatically by most tools.
 
 ## Prerequisites
 
@@ -108,11 +118,16 @@ podman exec -it life-planner-pg psql -U postgres -d life_planner -c '\dt'
 ```
 
 All ten tables should be present. The append-only trigger can be confirmed
-directly — this **should fail**:
+directly. Seed a row first — the trigger is row-level, so on an empty table the
+statement below just reports `UPDATE 0` and proves nothing:
 
 ```sql
-UPDATE xp_transactions SET amount = 999 WHERE id = '<any-id>';
--- ERROR: xp_transactions is append-only (xp_transactions_reject_mutation)
+INSERT INTO users (id, username) VALUES ('u1', 'probe');
+INSERT INTO xp_transactions (user_id, source_type, source_id, amount, reason)
+VALUES ('u1', 'task_completed', 'task_1', 10, 'trigger probe');
+
+UPDATE xp_transactions SET amount = 999 WHERE id = '<that row id>';
+-- ERROR: xp_transactions is append-only (PRD §39): UPDATE is not permitted. …
 ```
 
 ## Testing
@@ -224,7 +239,7 @@ block — that block is plaintext in git and is currently empty.
 ## Repo layout
 
 ```text
-docs/            PRD, DESIGN, ADRs
+docs/            PRD, DESIGN, ARCHITECTURE, GLOSSARY, ROADMAP, ADRs
 drizzle/         generated migrations + journal
 scripts/seed.ts  config and level-curve seed
 src/app/         routes (placeholder only)
