@@ -191,7 +191,7 @@ COMMIT;
 | `pnpm build` | OpenNext build → Workers (`.open-next/`) |
 | `pnpm build:next` | Plain `next build` — fast, and shows `○ (Static)` per route |
 | `pnpm preview` | `wrangler dev` against the built Worker |
-| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm typecheck` | `next typegen` then `tsc --noEmit` — see note below |
 | `pnpm lint` / `pnpm lint:fix` | ESLint |
 | `pnpm ci` | lint → typecheck → test |
 | `pnpm db:*` | see [Database](#database) |
@@ -206,6 +206,20 @@ must appear as `○ (Static)`.
 > If a route flips to `ƒ (Dynamic)`, that is a regression against ADR 0001 — the
 > 10 ms CPU ceiling does not allow server-rendered pages. Move the work to the
 > client.
+
+### Why `typecheck` runs `next typegen` first
+
+`src/app/layout.tsx` annotates its props as `LayoutProps<"/">`, a type Next
+generates rather than ships. Next writes it to `next-env.d.ts` and
+`.next/types/`, and **both paths are gitignored** — they only exist after a build
+or a dev run. So a bare `tsc --noEmit` on a fresh clone fails with
+`TS2304: Cannot find name 'LayoutProps'`, and since CI typechecks before it
+builds, that would fail every CI run.
+
+`pnpm typecheck` therefore runs `next typegen` first. It takes about a second,
+needs no network, and prints `✓ Types generated successfully` — which is expected
+output, not a warning. It also means typecheck no longer depends on someone having
+remembered to build.
 
 ## CI
 

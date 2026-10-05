@@ -15,7 +15,7 @@
     "preview": "wrangler dev",
     "deploy": "opennextjs-cloudflare deploy",
     "cf:types": "wrangler types",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run",
