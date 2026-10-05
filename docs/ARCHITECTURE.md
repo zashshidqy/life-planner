@@ -56,9 +56,24 @@ is identity, not a power ranking dressed as one.
 **Defended by.** A test, not a convention. It scans every column in the progression
 core for names containing `character`, `multiplier`, `bonus`, `boost`, or
 `xp_rate` and fails if any exist — see `award-xp.test.ts`, "has no character-stat
-column anywhere in the progression core". Adding such a column breaks CI. Adding
-the multiplier *in application code* does not, which is why the test is a column
-scan and not a complete solution: review is still the second line of defence.
+column anywhere in the progression core". Adding such a column breaks CI.
+
+**Known holes in that guard.** Stated precisely so nobody assumes more protection
+than exists:
+
+- A multiplier applied in **application code** is not caught at all. The test is a
+  column scan, not a complete solution; review is the second line of defence.
+- The scan covers **seven tables** — `users`, `user_progression`,
+  `xp_transactions`, `streaks`, `streak_events`, `achievements`,
+  `user_achievements`. `system_config` is **not** among them, so an
+  `xp_multiplier` row parked in config would pass. Neither are `analytics_events`
+  or `analytics_sessions`.
+- The test builds its schema by running the **`drizzle/*.sql` migrations**. A column
+  added to the Drizzle schema without a generated migration is invisible to it.
+
+Closing the first two is a small change to one test and would be worth doing
+before Phase 2 lands. Until then, treat this invariant as test-assisted and
+review-enforced.
 
 **If you break it.** This is the mistake a competent model makes confidently,
 because "a small bonus for the rarer character" feels like obvious good game design
