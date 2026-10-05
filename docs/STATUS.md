@@ -411,7 +411,7 @@ This is the check that found B3, and it is cheap. Run it before believing any
 "fresh clone → works" claim, including the ones in this file:
 
 ```bash
-git clone /home/zhundy/Projects/life-planner /tmp/lp-verify   # or your remote
+git clone <repo-or-remote> /tmp/lp-verify
 cd /tmp/lp-verify && pnpm i --frozen-lockfile && pnpm run ci && pnpm run build:next
 ```
 
